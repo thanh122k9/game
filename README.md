@@ -1,7 +1,7 @@
 # TikTok Live Stickman Game 🎮
 
 Trò chơi đấu trường Stickman tương tác trực tiếp với TikTok Live.
-**Phiên bản: 1.2.3 (Ổn định - Không cần API Key / Cookies)**
+**Phiên bản: 1.2.3 (Ổn định - Tối ưu kết nối ID - Không cần API)**
 
 ## 🚀 Hướng dẫn khởi động nhanh
 
