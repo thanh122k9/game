@@ -48,6 +48,69 @@ let gameStatus = 'waiting';
 let lastDropTime = Date.now();
 let screenShake = 0;
 
+// Sound Manager using Web Audio API
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const sounds = {
+    punch: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    },
+    slash: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+    },
+    shoot: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+    },
+    pickup: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+    },
+    drop: () => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(300, audioCtx.currentTime + 1);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.5);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 1);
+    }
+};
+
+function playSound(name) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (sounds[name]) sounds[name]();
+}
+
 // Player Class
 class Stickman {
     constructor(x, y, nickname, color) {
@@ -227,6 +290,7 @@ class Stickman {
             const d = Math.hypot(this.x + 25 - drop.x, this.y + 45 - drop.y);
             if (d < 60) {
                 this.weapon = drop.weapon;
+                playSound('pickup');
                 this.showPopup(this.weapon.name, '#ffff00');
                 addLog(`${this.nickname} nhặt ${this.weapon.name}`, '#ffff00');
                 supplyDrops.splice(i, 1);
@@ -278,6 +342,9 @@ class Stickman {
         if (this.isDead) return;
         this.isAttacking = true; this.attackTimer = 10;
         if (this.weapon.type === 'punch' || this.weapon.type === 'sword') {
+            if (this.weapon.type === 'punch') playSound('punch');
+            else playSound('slash');
+            
             const dmg = (this.weapon.type === 'punch' ? settings.damage.punch : settings.damage.sword) * this.damageMult;
             const range = this.weapon.type === 'sword' ? 100 : 70;
             Object.values(players).forEach(other => {
@@ -292,6 +359,7 @@ class Stickman {
             });
         } else {
             if (this.weapon.ammo > 0) {
+                playSound('shoot');
                 const dmg = settings.damage[this.weapon.type] * this.damageMult;
                 projectiles.push(new Projectile(this.x + 25, this.y + 35, this.facing, dmg, this.nickname));
                 this.weapon.ammo--; if (this.weapon.ammo <= 0) this.weapon.type = 'punch';
@@ -499,6 +567,7 @@ function animate() {
     if (gameStatus === 'playing') {
         if (Date.now() - lastDropTime > settings.dropInterval * 1000) {
             supplyDrops.push(new SupplyDrop());
+            playSound('drop');
             lastDropTime = Date.now();
             addLog('THÍNH RƠI!', '#ff8800');
         }
