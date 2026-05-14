@@ -73,23 +73,35 @@ class Stickman {
         this.popupText = '';
         this.popupTimer = 0;
         this.popupColor = '#fff';
+
+        // Death State
+        this.isDead = false;
+        this.deathTimer = 0;
+        this.deathOpacity = 1.0;
     }
 
     draw() {
         // Buff Aura
-        if (this.buffTimer > 0) {
+        if (this.buffTimer > 0 && !this.isDead) {
             ctx.shadowBlur = 20;
             ctx.shadowColor = this.damageMult > 1 ? '#ff4444' : '#00ff88';
+        }
+
+        ctx.save();
+        if (this.isDead) {
+            ctx.globalAlpha = this.deathOpacity;
         }
 
         this.drawBody(this.x, this.y, this.color, this.facing, this.isAttacking);
         ctx.shadowBlur = 0;
         
         // Nickname
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 13px Poppins';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.nickname, this.x + this.width / 2, this.y - 55);
+        if (!this.isDead) {
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 13px Poppins';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.nickname, this.x + this.width / 2, this.y - 55);
+        }
         
         // Buff / Weapon info
         if (this.buffTimer > 0) {
@@ -99,7 +111,7 @@ class Stickman {
             this.buffTimer--;
         }
 
-        if (this.weapon.type !== 'punch') {
+        if (this.weapon.type !== 'punch' && !this.isDead) {
             ctx.fillStyle = '#00f2ff';
             ctx.font = '11px Orbitron';
             let label = this.weapon.name || this.weapon.type.toUpperCase();
@@ -107,27 +119,39 @@ class Stickman {
             ctx.fillText(`${label} [${info}]`, this.x + this.width / 2, this.y - 70);
         }
 
-        ctx.fillRect(this.x - 10, this.y - 45, (this.health / 200) * 70, 6);
+        if (!this.isDead) {
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.fillRect(this.x - 10, this.y - 45, 70, 6);
+            ctx.fillStyle = '#ff4444';
+            ctx.fillRect(this.x - 10, this.y - 45, (this.health / 200) * 70, 6);
+        }
 
         // Floating Popup Text
         if (this.popupTimer > 0) {
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, this.popupTimer / 20);
             ctx.fillStyle = this.popupColor;
             ctx.font = 'bold 16px Orbitron';
             ctx.shadowBlur = 10;
             ctx.shadowColor = this.popupColor;
-            let yOffset = -100 - (60 - this.popupTimer) * 0.5; // Rises up
-            ctx.globalAlpha = Math.min(1, this.popupTimer / 20);
+            let yOffset = -100 - (60 - this.popupTimer) * 0.5;
             ctx.fillText(this.popupText, this.x + this.width / 2, this.y + yOffset);
-            ctx.globalAlpha = 1.0;
-            ctx.shadowBlur = 0;
+            ctx.restore();
             this.popupTimer--;
         }
+        ctx.restore();
     }
 
     drawBody(x, y, color, facing, attacking) {
         ctx.save();
-        let breathe = (Math.abs(this.velX) < 0.1 && this.grounded) ? Math.sin(Date.now() / 300) * 3 : 0;
+        let breathe = (Math.abs(this.velX) < 0.1 && this.grounded && !this.isDead) ? Math.sin(Date.now() / 300) * 3 : 0;
         ctx.translate(x + this.width / 2, y + this.height / 2 + breathe);
+        
+        if (this.isDead) {
+            ctx.rotate(Math.PI / 2 * this.facing); // Ngã sang một bên
+            ctx.translate(0, 20); // Điều chỉnh vị trí khi nằm
+        }
+
         ctx.scale(facing, 1);
         ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineCap = 'round';
         ctx.shadowBlur = 15; ctx.shadowColor = color;
@@ -211,25 +235,38 @@ class Stickman {
             }
         }
 
-        if (this.health <= 0) {
+        if (this.health <= 0 && !this.isDead) {
+            this.isDead = true;
+            this.deathTimer = 60; // 1 second
             addLog(`${this.nickname} đã gục ngã!`, '#ff4444');
             createParticles(this.x + 25, this.y + 45, '#ff4444', 40);
-            delete players[this.nickname];
             updateLeaderboard();
+        }
+
+        if (this.isDead) {
+            this.deathTimer--;
+            this.deathOpacity = Math.max(0, this.deathTimer / 60);
+            if (this.deathTimer <= 0) {
+                delete players[this.nickname];
+                updateLeaderboard();
+            }
         }
     }
 
     moveLeft() {
+        if (this.isDead) return;
         this.velX = -this.speed;
         this.facing = -1;
     }
 
     moveRight() {
+        if (this.isDead) return;
         this.velX = this.speed;
         this.facing = 1;
     }
 
     jump() {
+        if (this.isDead) return;
         if (this.grounded) {
             this.velY = -this.jumpForce;
             this.grounded = false;
@@ -238,6 +275,7 @@ class Stickman {
     }
 
     attack() {
+        if (this.isDead) return;
         this.isAttacking = true; this.attackTimer = 10;
         if (this.weapon.type === 'punch' || this.weapon.type === 'sword') {
             const dmg = (this.weapon.type === 'punch' ? settings.damage.punch : settings.damage.sword) * this.damageMult;
