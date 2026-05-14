@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -11,11 +12,12 @@ app.use(express.static('public'));
 
 let tiktokConnection = null;
 let currentUniqueId = null;
+let currentSessionId = null;
 let reconnectTimer = null;
 let isConnected = false;
 let isConnecting = false;
 
-function connectToTikTok(uniqueId) {
+function connectToTikTok(uniqueId, sessionId) {
     if (!uniqueId) return;
     
     // Nếu đang trong quá trình kết nối thì bỏ qua yêu cầu mới
@@ -47,7 +49,24 @@ function connectToTikTok(uniqueId) {
     console.log(`🚀 Đang kết nối tới TikTok: @${uniqueId}`);
     io.emit('log', `Đang kết nối tới @${uniqueId}...`);
 
-    tiktokConnection = new WebcastPushConnection(uniqueId);
+    const connectionOptions = {
+        enableExtendedGiftInfo: true,
+        requestPollingIntervalMs: 2000,
+    };
+
+    // Dùng sessionId (cookie TikTok) để bypass sign server - không cần API key
+    if (sessionId) {
+        connectionOptions.sessionId = sessionId;
+        console.log('🔑 Dùng sessionId để kết nối...');
+    }
+
+    // Thêm API key EulerStream nếu có
+    const eulerApiKey = process.env.EULER_API_KEY || '';
+    if (eulerApiKey) {
+        connectionOptions.eulerStreamApiKey = eulerApiKey;
+    }
+
+    tiktokConnection = new WebcastPushConnection(uniqueId, connectionOptions);
 
     tiktokConnection.connect().then(state => {
         console.info(`✅ Đã kết nối thành công: ${state.roomId}`);
@@ -63,7 +82,7 @@ function connectToTikTok(uniqueId) {
         let retryTime = 15000; // Đợi 15 giây trước khi thử lại để tránh bị TikTok chặn (spam)
         io.emit('log', `Kết nối thất bại (${err.message}). Thử lại sau ${retryTime/1000} giây...`);
         
-        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId), retryTime);
+        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId, currentSessionId), retryTime);
     });
 
     // Chỉ gán listener sau khi đã khởi tạo đối tượng mới
@@ -82,7 +101,7 @@ function connectToTikTok(uniqueId) {
         io.emit('log', 'Mất kết nối với TikTok. Đang thử lại sau 10 giây...');
         
         if (reconnectTimer) clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId), 10000);
+        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId, currentSessionId), 10000);
     });
 
     tiktokConnection.on('streamEnd', () => {
@@ -92,7 +111,7 @@ function connectToTikTok(uniqueId) {
         io.emit('log', 'Livestream đã kết thúc. Sẽ tự động kết nối lại khi stream mới bắt đầu...');
         
         if (reconnectTimer) clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId), 30000); // Đợi lâu hơn khi stream kết thúc
+        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId, currentSessionId), 30000);
     });
 
     tiktokConnection.on('error', err => {
@@ -112,9 +131,13 @@ io.on('connection', (socket) => {
         socket.emit('log', `Đang kết nối lại tới @${currentUniqueId}...`);
     }
 
-    socket.on('setUniqueId', (uniqueId) => {
-        console.log(`New TikTok ID: ${uniqueId}`);
-        connectToTikTok(uniqueId);
+    socket.on('setUniqueId', (data) => {
+        // Hỗ trợ cả dạng cũ (string) và dạng mới (object có sessionId)
+        const uniqueId = typeof data === 'string' ? data : data.uniqueId;
+        const sessionId = typeof data === 'object' ? data.sessionId : null;
+        console.log(`New TikTok ID: ${uniqueId}${sessionId ? ' (with sessionId)' : ''}`);
+        currentSessionId = sessionId;
+        connectToTikTok(uniqueId, sessionId);
     });
 
     socket.on('disconnect', () => {

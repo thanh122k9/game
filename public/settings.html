@@ -188,6 +188,16 @@
                 </div>
                 <button id="connectBtn">THIẾT LẬP KẾT NỐI</button>
                 <div id="status" class="status">Sẵn sàng...</div>
+
+                <details style="margin-top:20px;">
+                    <summary style="cursor:pointer;color:#aaa;font-size:0.8rem;">⚙️ Nâng cao: Nhập Session ID (bựa trị rate limit)</summary>
+                    <div style="margin-top:10px;">
+                        <label style="color:#ff8800;font-size:0.75rem;">
+                            📋 Cách lấy Session ID: Mở TikTok.com → F12 → Application → Cookies → sao chép giá trị <b>sessionid</b>
+                        </label>
+                        <input type="password" id="session-id" placeholder="dán session id vào đây (tùy chọn)" style="margin-top:8px;">
+                    </div>
+                </details>
             </div>
 
             <div class="section">
@@ -275,6 +285,7 @@
             if (isConnecting) return;
 
             const user = document.getElementById('username').value.trim();
+            const sessionId = document.getElementById('session-id').value.trim();
             if (user) {
                 isConnecting = true;
                 const btn = document.getElementById('connectBtn');
@@ -286,7 +297,7 @@
                 document.getElementById('status').textContent = 'Đang gửi yêu cầu kết nối...';
                 document.getElementById('status').className = 'status';
                 
-                socket.emit('setUniqueId', user);
+                socket.emit('setUniqueId', { uniqueId: user, sessionId: sessionId || null });
 
                 // Timeout phòng trường hợp không nhận được phản hồi từ server
                 setTimeout(() => {
