@@ -15,6 +15,6 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "socket.io": "^4.8.3",
-    "tiktok-live-connector": "^1.2.3"
+    "tiktok-live-connector": "^2.0.9"
   }
 }

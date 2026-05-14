@@ -128,16 +128,17 @@
 
         .status {
             margin-top: 15px;
-            padding: 10px;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
             text-align: center;
             font-weight: bold;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+            border: 1px solid transparent;
         }
 
-        .status.success { color: #00ff88; }
-        .status.error { color: #ff4444; }
+        .status.success { color: #00ff88; border-color: #00ff8844; }
+        .status.error { color: #ff4444; border-color: #ff444444; }
 
         .save-btn {
             background: #222;
@@ -157,53 +158,47 @@
         
         <div class="grid">
             <div class="section">
-                <h3>Cấu hình Kết nối & Lệnh</h3>
+                <h3>Cài đặt Kết nối</h3>
                 <div class="input-group">
-                    <label>ID TikTok</label>
-                    <input type="text" id="username" placeholder="@ten_cua_ban">
+                    <label>ID TikTok (Ví dụ: thanh122k9)</label>
+                    <input type="text" id="username" placeholder="Nhập ID TikTok của bạn">
                 </div>
-                <div class="flex-row">
-                    <label>Lệnh Tham gia</label>
-                    <input type="text" id="cmd-join" value="!choi">
-                </div>
-                <div class="flex-row">
-                    <label>Sang Trái</label>
-                    <input type="text" id="cmd-left" value="a">
-                </div>
-                <div class="flex-row">
-                    <label>Sang Phải</label>
-                    <input type="text" id="cmd-right" value="d">
-                </div>
-                <div class="flex-row">
-                    <label>Nhảy lên</label>
-                    <input type="text" id="cmd-jump" value="w">
-                </div>
-                <div class="flex-row">
-                    <label>Lệnh Tấn công</label>
-                    <input type="text" id="cmd-attack" value="f">
-                </div>
-                <div class="flex-row">
-                    <label>Rơi thính (giây)</label>
-                    <input type="number" id="drop-interval" value="30">
-                </div>
-                <button id="connectBtn">THIẾT LẬP KẾT NỐI</button>
-                <div id="status" class="status">Sẵn sàng...</div>
+                <button id="connectBtn">KẾT NỐI TIKTOK</button>
+                <div id="status" class="status">Sẵn sàng kết nối...</div>
 
-                <details style="margin-top:20px;">
-                    <summary style="cursor:pointer;color:#aaa;font-size:0.8rem;">⚙️ Nâng cao: Nhập Session ID (bựa trị rate limit)</summary>
-                    <div style="margin-top:10px;">
-                        <label style="color:#ff8800;font-size:0.75rem;">
-                            📋 Cách lấy Session ID: Mở TikTok.com → F12 → Application → Cookies → sao chép giá trị <b>sessionid</b>
-                        </label>
-                        <input type="password" id="session-id" placeholder="dán session id vào đây (tùy chọn)" style="margin-top:8px;">
+                <div style="margin-top: 30px;">
+                    <h3>Lệnh Điều khiển</h3>
+                    <div class="flex-row">
+                        <label>Tham gia</label>
+                        <input type="text" id="cmd-join" value="!choi">
                     </div>
-                </details>
+                    <div class="flex-row">
+                        <label>Sang Trái</label>
+                        <input type="text" id="cmd-left" value="a">
+                    </div>
+                    <div class="flex-row">
+                        <label>Sang Phải</label>
+                        <input type="text" id="cmd-right" value="d">
+                    </div>
+                    <div class="flex-row">
+                        <label>Nhảy lên</label>
+                        <input type="text" id="cmd-jump" value="w">
+                    </div>
+                    <div class="flex-row">
+                        <label>Tấn công</label>
+                        <input type="text" id="cmd-attack" value="f">
+                    </div>
+                    <div class="flex-row">
+                        <label>Hòm thính (giây)</label>
+                        <input type="number" id="drop-interval" value="30">
+                    </div>
+                </div>
             </div>
 
             <div class="section">
-                <h3>Cài đặt Sát thương Vũ khí</h3>
+                <h3>Sát thương Vũ khí</h3>
                 <div class="flex-row">
-                    <label>Đấm (Mặc định)</label>
+                    <label>Đấm</label>
                     <input type="number" id="dmg-punch" value="1">
                 </div>
                 <div class="flex-row">
@@ -222,7 +217,7 @@
                     <label>Súng ngắm</label>
                     <input type="number" id="dmg-sniper" value="20">
                 </div>
-                <button id="saveAllBtn" class="save-btn">LƯU TẤT CẢ CÀI ĐẶT</button>
+                <button id="saveAllBtn" class="save-btn">LƯU TẤT CẢ THIẾT LẬP</button>
             </div>
         </div>
     </div>
@@ -276,7 +271,7 @@
             };
             localStorage.setItem('gameSettings', JSON.stringify(settings));
             bc.postMessage({ type: 'UPDATE_SETTINGS', settings });
-            alert('Đã lưu cài đặt!');
+            alert('Đã lưu thiết lập!');
         }
 
         let isConnecting = false;
@@ -285,30 +280,29 @@
             if (isConnecting) return;
 
             const user = document.getElementById('username').value.trim();
-            const sessionId = document.getElementById('session-id').value.trim();
             if (user) {
                 isConnecting = true;
                 const btn = document.getElementById('connectBtn');
                 btn.disabled = true;
                 btn.style.opacity = '0.5';
-                btn.style.cursor = 'not-allowed';
                 btn.textContent = 'ĐANG KẾT NỐI...';
                 
-                document.getElementById('status').textContent = 'Đang gửi yêu cầu kết nối...';
+                document.getElementById('status').textContent = 'Đang gửi yêu cầu...';
                 document.getElementById('status').className = 'status';
                 
-                socket.emit('setUniqueId', { uniqueId: user, sessionId: sessionId || null });
+                socket.emit('setUniqueId', user);
 
-                // Timeout phòng trường hợp không nhận được phản hồi từ server
+                // Timeout
                 setTimeout(() => {
                     if (isConnecting) {
                         isConnecting = false;
                         btn.disabled = false;
                         btn.style.opacity = '1';
-                        btn.style.cursor = 'pointer';
-                        btn.textContent = 'THIẾT LẬP KẾT NỐI';
+                        btn.textContent = 'KẾT NỐI TIKTOK';
                     }
                 }, 10000);
+            } else {
+                alert('Vui lòng nhập ID TikTok!');
             }
         });
 
@@ -319,27 +313,22 @@
             const btn = document.getElementById('connectBtn');
             btn.disabled = false;
             btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-            btn.textContent = 'THIẾT LẬP KẾT NỐI';
+            btn.textContent = 'KẾT NỐI TIKTOK';
             
-            document.getElementById('status').textContent = 'Đã kết nối thành công!';
+            document.getElementById('status').textContent = '✅ Đã kết nối thành công!';
             document.getElementById('status').className = 'status success';
         });
 
         socket.on('log', (msg) => {
             document.getElementById('status').textContent = msg;
-        });
-
-        socket.on('error', (err) => {
-            isConnecting = false;
-            const btn = document.getElementById('connectBtn');
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-            btn.textContent = 'THIẾT LẬP KẾT NỐI';
-            
-            document.getElementById('status').textContent = 'Lỗi: ' + err;
-            document.getElementById('status').className = 'status error';
+            if (msg.includes('❌')) {
+                isConnecting = false;
+                const btn = document.getElementById('connectBtn');
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.textContent = 'KẾT NỐI TIKTOK';
+                document.getElementById('status').className = 'status error';
+            }
         });
 
         loadSettings();

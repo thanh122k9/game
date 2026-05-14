@@ -11,12 +11,11 @@ app.use(express.static('public'));
 
 let tiktokConnection = null;
 let currentUniqueId = null;
-let currentSessionId = null;
 let reconnectTimer = null;
 let isConnected = false;
 let isConnecting = false;
 
-function connectToTikTok(uniqueId, sessionId) {
+function connectToTikTok(uniqueId) {
     if (!uniqueId) return;
 
     if (isConnecting) return;
@@ -37,70 +36,73 @@ function connectToTikTok(uniqueId, sessionId) {
     isConnected = false;
     isConnecting = true;
     currentUniqueId = uniqueId;
-    currentSessionId = sessionId;
 
-    console.log(`🚀 Đang kết nối tới @${uniqueId}...`);
+    console.log(`🚀 Đang kết nối tới TikTok ID: ${uniqueId}`);
     io.emit('log', `Đang kết nối tới @${uniqueId}...`);
 
-    // Cấu hình kết nối
-    const options = {
-        enableExtendedGiftInfo: true
-    };
-
-    if (sessionId) {
-        options.sessionId = sessionId;
-        console.log("🔑 Đang dùng Session ID để vượt rào...");
-    }
-
-    tiktokConnection = new WebcastPushConnection(uniqueId, options);
+    // Khởi tạo kết nối với cấu hình tối ưu cho v2.x
+    tiktokConnection = new WebcastPushConnection(uniqueId, {
+        enableExtendedGiftInfo: true,
+        requestPollingIntervalMs: 2000,
+        clientParams: {
+            "app_language": "vi-VN",
+            "device_platform": "web"
+        }
+    });
 
     tiktokConnection.connect().then(state => {
-        console.log(`✅ Thành công! Room ID: ${state.roomId}`);
+        console.log(`✅ Kết nối thành công! Room ID: ${state.roomId}`);
         isConnected = true;
         isConnecting = false;
         io.emit('connected', { roomId: state.roomId, uniqueId });
-        io.emit('log', `✅ Kết nối thành công!`);
+        io.emit('log', `✅ Đã kết nối thành công tới @${uniqueId}`);
     }).catch(err => {
-        console.error('❌ Lỗi:', err.message);
+        console.error('❌ Lỗi kết nối:', err.message);
         isConnected = false;
         isConnecting = false;
         
-        let errorMsg = err.message;
-        if (errorMsg.includes("initial room data")) {
-            errorMsg = "Không tìm thấy phòng live. Hãy chắc chắn bạn đang Live và thử nhập Session ID (trong phần Nâng cao).";
-        }
+        let msg = err.message;
+        if (msg.includes("initial room data")) msg = "Không tìm thấy phòng Live. Hãy chắc chắn bạn đang livestream!";
+        if (msg.includes("Rate Limited")) msg = "Bạn đang bị TikTok chặn tạm thời (Rate Limited). Hãy đợi vài phút rồi thử lại.";
         
-        io.emit('log', `❌ ${errorMsg}`);
-        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId, sessionId), 15000);
+        io.emit('log', `❌ ${msg}`);
+        
+        // Tự động thử lại sau 15 giây
+        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId), 15000);
     });
 
-    tiktokConnection.on('chat',   data => io.emit('tiktok-chat', data));
-    tiktokConnection.on('gift',   data => io.emit('tiktok-gift', data));
-    tiktokConnection.on('like',   data => io.emit('tiktok-like', data));
+    // Lắng nghe sự kiện
+    tiktokConnection.on('chat', data => io.emit('tiktok-chat', data));
+    tiktokConnection.on('gift', data => io.emit('tiktok-gift', data));
+    tiktokConnection.on('like', data => io.emit('tiktok-like', data));
     tiktokConnection.on('follow', data => io.emit('tiktok-follow', data));
-    tiktokConnection.on('share',  data => io.emit('tiktok-share', data));
+    tiktokConnection.on('share', data => io.emit('tiktok-share', data));
 
     tiktokConnection.on('disconnected', () => {
         if (!isConnected && !isConnecting) return;
         isConnected = false;
         isConnecting = false;
-        io.emit('log', '⚠️ Mất kết nối. Đang thử lại...');
-        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId, sessionId), 10000);
+        io.emit('log', '⚠️ Mất kết nối. Đang kết nối lại...');
+        reconnectTimer = setTimeout(() => connectToTikTok(uniqueId), 10000);
     });
 }
 
 io.on('connection', (socket) => {
+    console.log('Client connected');
+
     socket.on('setUniqueId', (data) => {
-        const uniqueId = typeof data === 'string' ? data : data.uniqueId;
-        const sessionId = typeof data === 'object' ? data.sessionId : null;
+        // Chấp nhận cả string hoặc object
+        let uniqueId = typeof data === 'string' ? data : data.uniqueId;
         
-        // Xóa dấu @ nếu người dùng nhập thừa
-        const cleanId = uniqueId.replace('@', '');
-        connectToTikTok(cleanId, sessionId);
+        if (uniqueId) {
+            // Làm sạch ID: xóa @, xóa khoảng trắng
+            uniqueId = uniqueId.replace('@', '').trim();
+            connectToTikTok(uniqueId);
+        }
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`✅ Server chạy tại http://localhost:${PORT}`);
+    console.log(`✅ Server đang chạy tại http://localhost:${PORT}`);
 });
