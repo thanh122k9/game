@@ -40,13 +40,16 @@ function connectToTikTok(uniqueId) {
     console.log(`🚀 Đang kết nối tới TikTok ID: ${uniqueId}`);
     io.emit('log', `Đang kết nối tới @${uniqueId}...`);
 
-    // Khởi tạo kết nối với cấu hình tối ưu cho v2.x
+    // Khởi tạo kết nối với cấu hình "tàng hình" để né Rate Limit
     tiktokConnection = new WebcastPushConnection(uniqueId, {
         enableExtendedGiftInfo: true,
-        requestPollingIntervalMs: 2000,
+        requestPollingIntervalMs: 5000, // Tăng lên 5 giây để tránh bị quét spam
         clientParams: {
-            "app_language": "vi-VN",
-            "device_platform": "web"
+            "app_language": "en-US",
+            "device_platform": "web",
+            "browser_language": "en-US",
+            "browser_platform": "Win32",
+            "browser_name": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
     });
 
